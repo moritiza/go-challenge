@@ -13,4 +13,8 @@ type Storage interface {
 
 	// CountActiveUsers returns the number of active users in a segment.
 	CountActiveUsers(ctx context.Context, segment string) (int64, error)
+
+	// CleanupExpired removes expired memberships from a segment.
+	// It is intended to run periodically as a background cleanup task.
+	CleanupExpired(ctx context.Context, segment string) error
 }
