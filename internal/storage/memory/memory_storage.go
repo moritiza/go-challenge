@@ -77,3 +77,16 @@ func (s *Storage) CleanupExpired(_ context.Context, segment string) error {
 
 	return nil
 }
+
+// ListSegments returns all known segment names.
+func (s *Storage) ListSegments(_ context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	segments := make([]string, 0, len(s.segments))
+	for segment := range s.segments {
+		segments = append(segments, segment)
+	}
+
+	return segments, nil
+}

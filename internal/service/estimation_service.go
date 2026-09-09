@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -62,6 +63,27 @@ func (s *EstimationService) CleanupExpired(ctx context.Context, segment string) 
 	}
 
 	return nil
+}
+
+// CleanupAllExpired cleans up expired memberships from all segments.
+func (s *EstimationService) CleanupAllExpired(ctx context.Context) error {
+	segments, err := s.store.ListSegments(ctx)
+	if err != nil {
+		return fmt.Errorf("list segments: %w", err)
+	}
+
+	var errs []error
+
+	for _, segment := range segments {
+		if err := s.CleanupExpired(ctx, segment); err != nil {
+			errs = append(
+				errs,
+				fmt.Errorf("cleanup segment %q: %w", segment, err),
+			)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // Healthy reports whether the service's dependencies are reachable.

@@ -9,9 +9,10 @@ import (
 
 // Config holds all runtime configuration.
 type Config struct {
-	Server ServerConfig
-	Redis  RedisConfig
-	Domain DomainConfig
+	Server      ServerConfig
+	Redis       RedisConfig
+	Domain      DomainConfig
+	Maintenance MaintenanceConfig
 }
 
 // ServerConfig holds HTTP server settings.
@@ -34,6 +35,11 @@ type RedisConfig struct {
 // DomainConfig holds business-rule settings.
 type DomainConfig struct {
 	MembershipTTL time.Duration
+}
+
+type MaintenanceConfig struct {
+	CleanupInterval  time.Duration
+	CleanupBatchSize int64
 }
 
 // Load reads configuration from environment variables.
@@ -73,6 +79,20 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid MEMBERSHIP_TTL: %w", err)
 	}
 
+	cleanupInterval, err := time.ParseDuration(getEnv("CLEANUP_INTERVAL", "10m"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid CLEANUP_INTERVAL: %w", err)
+	}
+
+	cleanupBatchSize, err := strconv.ParseInt(getEnv("CLEANUP_BATCH_SIZE", "1000"), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid CLEANUP_BATCH_SIZE: %w", err)
+	}
+
+	if cleanupBatchSize <= 0 {
+		return nil, fmt.Errorf("invalid CLEANUP_BATCH_SIZE: must be greater than 0")
+	}
+
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:            getEnv("SERVER_PORT", "8080"),
@@ -89,6 +109,10 @@ func Load() (*Config, error) {
 		},
 		Domain: DomainConfig{
 			MembershipTTL: membershipTTL,
+		},
+		Maintenance: MaintenanceConfig{
+			CleanupInterval:  cleanupInterval,
+			CleanupBatchSize: cleanupBatchSize,
 		},
 	}
 

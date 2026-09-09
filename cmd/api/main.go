@@ -38,6 +38,7 @@ func run(logger *slog.Logger) error {
 		cfg.Redis.Addr,
 		cfg.Redis.Password,
 		cfg.Redis.DB,
+		cfg.Maintenance.CleanupBatchSize,
 	)
 	defer func() {
 		if err := store.Close(); err != nil {
@@ -75,14 +76,18 @@ func run(logger *slog.Logger) error {
 
 	return serveWithGracefulShutdown(
 		srv,
+		svc,
 		cfg.Server.ShutdownTimeout,
+		cfg.Maintenance.CleanupInterval,
 		logger,
 	)
 }
 
 func serveWithGracefulShutdown(
 	srv *http.Server,
+	svc *service.EstimationService,
 	shutdownTimeout time.Duration,
+	cleanupInterval time.Duration,
 	logger *slog.Logger,
 ) error {
 	serverErrs := make(chan error, 1)
@@ -100,6 +105,16 @@ func serveWithGracefulShutdown(
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(stop)
 
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	defer cleanupCancel()
+
+	go runCleanupWorker(
+		cleanupCtx,
+		svc,
+		cleanupInterval,
+		logger,
+	)
+
 	select {
 	case err := <-serverErrs:
 		return err
@@ -107,6 +122,8 @@ func serveWithGracefulShutdown(
 	case sig := <-stop:
 		logger.Info("shutdown signal received", "signal", sig.String())
 	}
+
+	cleanupCancel()
 
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
@@ -121,4 +138,30 @@ func serveWithGracefulShutdown(
 	logger.Info("server stopped gracefully")
 
 	return nil
+}
+
+func runCleanupWorker(
+	ctx context.Context,
+	svc *service.EstimationService,
+	interval time.Duration,
+	logger *slog.Logger,
+) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	logger.Info("cleanup worker started", "interval", interval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("cleanup worker stopped")
+
+			return
+
+		case <-ticker.C:
+			if err := svc.CleanupAllExpired(ctx); err != nil {
+				logger.Error("cleanup failed", "error", err)
+			}
+		}
+	}
 }

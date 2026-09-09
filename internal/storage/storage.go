@@ -20,4 +20,8 @@ type Storage interface {
 	// CleanupExpired removes expired memberships from a segment.
 	// It is intended to run periodically as a background cleanup task.
 	CleanupExpired(ctx context.Context, segment string) error
+
+	// ListSegments returns all known segment names.
+	// The cleanup job uses this to iterate over segments.
+	ListSegments(ctx context.Context) ([]string, error)
 }
