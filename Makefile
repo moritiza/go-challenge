@@ -1,4 +1,4 @@
-.PHONY: help build run test test-race lint fmt docker-up docker-down
+.PHONY: help build run test test-race test-integration setup-redis lint fmt docker-up docker-down
 
 help: ## Show this help message
 	@echo "Available commands:"
@@ -12,14 +12,21 @@ build: ## Build the binary
 	@go build -o bin/estimation-service ./cmd/api
 	@echo "Build complete: bin/estimation-service"
 
-run: ## Run the service locally
+setup-redis: ## Restart Redis for local development and tests
+	@docker compose stop redis >/dev/null 2>&1 || true
+	@docker compose up -d redis
+
+run: setup-redis ## Run the service locally
 	@go run ./cmd/api
 
-test: ## Run unit tests
-	@go test ./...
+test: ## Run all tests
+	@go test -count=1 ./...
 
-test-race: ## Run tests with the race detector
-	@go test ./... -race
+test-race: ## Run all tests with the race detector
+	@go test -count=1 ./... -race
+
+test-integration: setup-redis ## Run Redis integration tests
+	@go test -count=1 ./internal/storage/redis/...
 
 lint: ## Run go vet
 	@go vet ./...
