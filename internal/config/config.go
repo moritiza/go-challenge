@@ -19,14 +19,16 @@ type ServerConfig struct {
 	Port            string
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
 }
 
 // RedisConfig holds connection settings for Redis.
 type RedisConfig struct {
-	Addr     string
-	Password string
-	DB       int
+	Addr        string
+	Password    string
+	DB          int
+	PingTimeout time.Duration
 }
 
 // DomainConfig holds business-rule settings.
@@ -46,6 +48,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_WRITE_TIMEOUT: %w", err)
 	}
 
+	idleTimeout, err := time.ParseDuration(getEnv("SERVER_IDLE_TIMEOUT", "60s"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid SERVER_IDLE_TIMEOUT: %w", err)
+	}
+
 	shutdownTimeout, err := time.ParseDuration(getEnv("SERVER_SHUTDOWN_TIMEOUT", "10s"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid SERVER_SHUTDOWN_TIMEOUT: %w", err)
@@ -54,6 +61,11 @@ func Load() (*Config, error) {
 	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "0"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid REDIS_DB: %w", err)
+	}
+
+	pingTimeout, err := time.ParseDuration(getEnv("REDIS_PING_TIMEOUT", "5s"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid REDIS_PING_TIMEOUT: %w", err)
 	}
 
 	membershipTTL, err := time.ParseDuration(getEnv("MEMBERSHIP_TTL", "336h")) // 14 days
@@ -66,12 +78,14 @@ func Load() (*Config, error) {
 			Port:            getEnv("SERVER_PORT", "8080"),
 			ReadTimeout:     readTimeout,
 			WriteTimeout:    writeTimeout,
+			IdleTimeout:     idleTimeout,
 			ShutdownTimeout: shutdownTimeout,
 		},
 		Redis: RedisConfig{
-			Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       redisDB,
+			Addr:        getEnv("REDIS_ADDR", "localhost:6379"),
+			Password:    getEnv("REDIS_PASSWORD", ""),
+			DB:          redisDB,
+			PingTimeout: pingTimeout,
 		},
 		Domain: DomainConfig{
 			MembershipTTL: membershipTTL,
