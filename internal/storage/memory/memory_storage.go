@@ -25,6 +25,12 @@ func NewStorage() *Storage {
 	}
 }
 
+// Ping always succeeds for the in-memory storage,
+// there's no external dependency to check.
+func (s *Storage) Ping(_ context.Context) error {
+	return nil
+}
+
 // StoreMembership stores or refreshes a membership.
 func (s *Storage) StoreMembership(_ context.Context, m *domain.Membership) error {
 	s.mu.Lock()

@@ -8,6 +8,9 @@ import (
 
 // Storage persists memberships and provides segment queries.
 type Storage interface {
+	// Ping checks that the storage backend is reachable.
+	Ping(ctx context.Context) error
+
 	// StoreMembership saves or refreshes a membership.
 	StoreMembership(ctx context.Context, m *domain.Membership) error
 

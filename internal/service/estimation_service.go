@@ -63,3 +63,8 @@ func (s *EstimationService) CleanupExpired(ctx context.Context, segment string) 
 
 	return nil
 }
+
+// Healthy reports whether the service's dependencies are reachable.
+func (s *EstimationService) Healthy(ctx context.Context) error {
+	return s.store.Ping(ctx)
+}
